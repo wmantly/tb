@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>dir</title>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+	<script src="/js/mustache.js"></script>
+	<script src="https://wmantly.info/cdn/jq-repeat.js"></script>
+	<script type="text/javascript">
+	$( document ).ready( function(){
+
+		$.get( './api/info', function( data ){
+			for( var i in data.formats ){
+				if( !data.formats[i].canMux ) continue ;
+				$('select').append('<option value="' + i + '">' + i + ' - ' +data.formats[i].description + '</option>'); 
+			}
+		} );
+
+		$( 'form' ).on( 'submit', function( event ){
+		    event.preventDefault();
+		    event.defaultPrevented;
+		    $.scope.videos.splice(0);
+		    var href = $( '[name="url"]' ).val() + '&size=' + $( '[name="height"]' ).val() + '&format=' + $( '[name="format"]').val()
+		    console.log( href )
+			$.scope.videos.push( {
+				name: $( '#name' ).text(),
+				href: href
+			} );
+
+		    return false;
+		});
+
+		$( 'tbody' ).on( 'click', 'play', function( event ){
+			$( '#name' ).text( $( this ).text() );
+			$( '.modal' ).show();
+			$( '[name="url"]' ).val( $( this ).attr('href') );
+			$.get( 'api/fileData' + $( this ).attr('href').replace( './video/', '' ), function( data ){
+				console.log(data)
+			} );
+		});
+
+		$( 'div.close' ).on( 'click', function( event ){
+			$.scope.videos.splice(0);
+			$( '.modal' ).hide();
+		} );
+
+		var getList = function( dir ){
+
+			dir = dir.replace('#','');
+			dir = 'api/list?dir=' + dir + '/';
+			$.scope.currentList.splice(0);
+
+			$.get( dir, function( data ){
+				data.list.forEach( function( obj ){
+					if( !obj.data ){
+						console.log( obj );
+						return ;
+					}
+
+					if( obj.type.type == 'folder' ){
+						obj.name = '<a href="#' + window.location.hash.replace('#', '') + '/' + obj.name + '">' + obj.name +'</a>';
+					}
+
+					if( obj.type.type == 'video' ){
+						obj.name = '<play href="./video/?filename=' + data.dir + obj.name + '">' + obj.name +'</play>';
+					}
+
+					$.scope.currentList.push( {
+						type: obj.type.type,
+						name: obj.name,
+						size: obj.data.size
+					} );
+				} );
+			} );
+		};
+
+		getList( window.location.hash );
+
+		$(window).bind('hashchange', function() {
+			getList( window.location.hash );
+		} );
+	} );
+	</script>
+	<style type="text/css">
+	h2{
+		margin: 0;
+		display: inline-block;
+	}
+
+	div.modal{
+		position: fixed;
+		height: 95vh;
+		width: 95vw;
+		background-color: #eee;
+		border: 2px solid black;
+		padding: 10px;
+		margin: 1em;
+	}
+
+	div.modal_header{
+		width: 100%;
+		display: block;
+		height: 2em;
+	}
+
+	.modal_header div{
+		display: inline-block;
+		float: left;
+	}
+
+	div.close{
+		float: right;
+	}
+
+	</style>
+</head>
+<body>
+	<div class="modal" style="display: none">
+		<div class="modal_header">
+			<div>
+				<h2 id="name">Name</h2>
+			</div>
+
+			<div class="close">
+				<h2>X</h2>
+			</div>
+		</div>
+		
+		<hr />
+		<div class="modal_body">
+			<form>
+
+				<input type="hidden" name="url" />
+				<label>
+					height
+				</label>
+
+				<input type="number" name="height" />
+				<label>
+					format
+				</label>
+
+				<select name="format"></select>
+
+				<button type="submit">
+					play
+				</button>
+
+			</form>
+		</div>
+
+		<br />
+		<div jq-repeat="videos">
+			<video controls>
+				<source src="{{ href }}">
+				Your browser does not support the video tag.
+			</video>
+		</div>
+	</div>
+	<table>
+		<thead>
+			<th>
+				Type
+			</th>
+			<th>
+				Name
+			</th>
+			<th>
+				Size
+			</th>
+		</thead>
+		<tbody>
+			<tr jq-repeat="currentList">
+				<td>
+					{{{ type }}}
+				</td>
+				<td>
+					{{{ name }}}
+				</td>
+				<td>
+					{{{ size }}}
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</body>
+</html>
