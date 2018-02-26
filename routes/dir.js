@@ -1,8 +1,13 @@
-var express = require('express');
-var router = express.Router();
 var fs = require('fs');
 var probe = require('node-ffprobe');
 var ffmpeg = require('fluent-ffmpeg');
+var lodash = require('lodash');
+
+var parseParentPointer = function(path){
+	while(path.match(/^\/*\.\.\//)) path = path.replace(/^\/*\.\.\//, '');
+
+	return path
+};
 
 /* The list of types should be moved to database and be more be detailed*/
 var typeList = {
@@ -59,97 +64,132 @@ var statList = function( dir, list, callback ){
 	var out = [],
 		i = 0;
 
+	var callbackCheck = function(msg){
+		if( ++i === list.length ){
+			callback( {
+				list: out,
+				dir: dir
+			} );
+		}
+	};
+
 	list.forEach( function( file ){
 		fs.stat( dir+file, function( error, results ){
 			if ( error ) return;
 			var type = results.isDirectory() ? typeList[ 'folder' ] : getType( file );
 
-			out.push( {
-				name: file,
-				type: type,
-				data: results
-			} );
+			if( type['type'] === 'video' ){
+				probe( dir+file, function( error, probeRes ){
+					
+					if(error) console.log(dir+file, error);
 
-			if( ++i === list.length ){
-				callback( { list: out, dir: dir } );
+					out.push( {
+						name: file,
+						type: type,
+						data: results,
+						probe: probeRes
+					} );
+
+					callbackCheck('video check');
+
+				} );
+			}else{
+				out.push( {
+					name: file,
+					type: type,
+					data: results,
+				} );
+
+				callbackCheck('not video check');
 			}
 		} );
 	} );
 };
 
-router.get( '/', function( req, res, next ) {
-	res.render( 'dir', { title: "dir" } );
-});
+module.exports = function(app){
 
-router.get( '/api/fileData', function( req, res, next ) {
-	if( !req.query.filename ) res.json( {} );
+	console.log('here')
 
-	probe( req.query.filename, function( error, results ){
-		res.json( results );
-	} );
-} );
+	// fs.watch('/stuffpool/incoming/', {encoding: 'buffer'}, lodash.debounce(function(filename){
+	// 	console.log('new file!');
+	// 	app.io.to('incoming').emit('new-file', {'filename': filename});
+	// }, 500));
 
-router.get( '/api/list', function( req, res, next ) {
-	var dir = '/stuff/media/' + ( req.query.dir || '/' );
+	app.get( '/dir/', function( req, res, next ) {
+		res.render( 'dir', { title: "dir" } );
+	});
 
-	fileList(dir, function( list ){
-		statList( dir, list, function( out ){
-			res.json( out );
+	app.get( '/api/fileData', function( req, res, next ) {
+		if( !req.query.filename ) res.json({});
+
+		probe( parseParentPointer(req.query.filename), function(error, results){
+			return res.json( results );
 		} );
 	} );
-} );
- 
-router.get('/video/', function( req, res, next ) {
-	var format = req.query.format || 'webm';
-	res.contentType(format);
-	// make sure you set the correct path to your video file storage
-	var pathToMovie = req.query.filename;
-	var size = req.query.size ? '?x' + req.query.size : '100%';
-	console.log( format, size, pathToMovie );
-	var proc = ffmpeg(pathToMovie)
-		// use the 'flashvideo' preset (located in /lib/presets/flashvideo.js)
-		.format(format)
-		.size(size)
-		.outputOptions([ '-strict -2', '-movflags', '+faststar' ])
-		// .videoCodec('libx264')
-		// .audioCodec('aac')
-		// setup event handlers
-		.on( 'start', function(){
-			console.log(arguments)
-		})
-		.on( 'codecData',function(){
-			console.log(arguments)
-		} )
-		/*.on( 'progress',function(){
-			console.log( 'progress', arguments )
-		} )*/
-		.on('end', function() {
-		  console.log('file has been converted succesfully');
-		})
-		.on('error', function( err, stdout, stderr ) {
-		  console.log('an error happened: ', err, stdout, stderr );
-		})
-		// save to stream
-		.pipe( res, {end:true} );
-});
 
-router.get( '/info/', function( req, res, next ){
-	res.render( 'info' );
-} );
+	app.get('/api/list', function(req, res, next) {
+		
+		var dir = '/stuff/' + parseParentPointer( req.query.dir );
 
-router.get( '/api/info/', function( req, res, next ){
-	var out = {};
-	ffmpeg.getAvailableFilters( function( error, filters ){
-		out.filters = filters;
-		ffmpeg.getAvailableCodecs( function( error, codecs ){
-			out.codecs = codecs;
-			formats: ffmpeg.getAvailableFormats( function( error, formats ){
-				out.formats = formats;
-				res.json( out );
+		fileList(dir, function(list){
+			statList(dir, list, function(out){
+				res.json(out);
+			});
+		});
+	});
+	
+	app.get('/video/', function( req, res, next ) {
+		var format = req.query.format || 'mp4';
+		res.contentType(format);
+		// make sure you set the correct path to your video file storage
+		var pathToMovie = req.query.filename;
+		var size = req.query.size ? '?x' + req.query.size : '100%';
+		console.log( format, size, pathToMovie );
+
+		var proc = ffmpeg(pathToMovie)
+			.format(format)
+			.size(size)
+			.outputOptions([ '-threads 8', '-strict -2', '-movflags frag_keyframe+faststart', '-tune zerolatency' ])
+			.on('start', function(){
+				console.info('start', arguments);
+			})
+			.on('codecData',function(){
+				console.info('codecData', arguments);
+			})
+			.on('progress',function(){
+				console.info('progress', arguments);
+			})
+			.on('end', function(){
+				console.info('file has been converted successfully');
+			})
+			.on('error', function(err, stdout, stderr){
+				console.error('an error happened:', err, stdout, stderr);
+			})
+			// save to stream
+			.pipe(res, {end: true});
+	});
+
+	// 
+	app.get( '/dir/info/', function( req, res, next ){
+		res.render( 'info' );
+	} );
+
+	// ffmpeg info
+	app.get( '/api/info/', function( req, res, next ){
+		var out = {};
+		ffmpeg.getAvailableFilters( function( error, filters ){
+			out.filters = filters;
+			ffmpeg.getAvailableCodecs( function( error, codecs ){
+				out.codecs = codecs;
+				formats: ffmpeg.getAvailableFormats( function( error, formats ){
+					out.formats = formats;
+					res.json( out );
+				} );
 			} );
 		} );
 	} );
-} );
+};
 
 
-module.exports = router;
+
+ 

@@ -3,15 +3,22 @@
 <head>
 	<title>dir</title>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.2/jquery.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.tablesorter/2.28.13/js/jquery.tablesorter.combined.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.18.1/moment.min.js"></script>
 	<script src="/js/mustache.js"></script>
-	<script src="https://wmantly.info/cdn/jq-repeat.js"></script>
+	<script src="/js/jqrepeat.js"></script>
+	<script src="/socket.io/socket.io.js"></script>
+
 	<script type="text/javascript">
 	$( document ).ready( function(){
+		var socket = io();
+
+		socket.on('new-file', console.log);
 
 		$.get( './api/info', function( data ){
 			for( var i in data.formats ){
 				if( !data.formats[i].canMux ) continue ;
-				$('select').append('<option value="' + i + '">' + i + ' - ' +data.formats[i].description + '</option>'); 
+				$('select').append('<option value="' + i + '" '+ (i==='mp4'? 'selected' : '') +'>' + i + ' - ' +data.formats[i].description + '</option>'); 
 			}
 		} );
 
@@ -61,15 +68,25 @@
 					}
 
 					if( obj.type.type == 'video' ){
+						var duration = moment.duration(obj.probe.format.duration, 'seconds');
+						if(obj.probe.streams.length > 2) console.log(obj.probe)
 						obj.name = '<play href="./video/?filename=' + data.dir + obj.name + '">' + obj.name +'</play>';
+						obj.probe.height = obj.probe.streams[0].height;
+						obj.probe.width = obj.probe.streams[0].width;
+
+						obj.duration = ''+(duration.hours() && duration.hours() + 'hr ')+
+							(duration.minutes() && duration.minutes() + 'm');
 					}
 
 					$.scope.currentList.push( {
 						type: obj.type.type,
 						name: obj.name,
-						size: obj.data.size
+						size: obj.data.size,
+						duration: obj.duration,
+						probe: obj.probe,
 					} );
 				} );
+				$("table").tablesorter();
 			} );
 		};
 
@@ -150,7 +167,7 @@
 
 		<br />
 		<div jq-repeat="videos">
-			<video controls>
+			<video controls width="600">
 				<source src="{{ href }}">
 				Your browser does not support the video tag.
 			</video>
@@ -167,6 +184,15 @@
 			<th>
 				Size
 			</th>
+			<th>
+				Duration
+			</th>
+			<th>
+				Height
+			</th>
+			<th>
+				Width
+			</th>
 		</thead>
 		<tbody>
 			<tr jq-repeat="currentList">
@@ -178,6 +204,15 @@
 				</td>
 				<td>
 					{{{ size }}}
+				</td>
+				<td>
+					{{ duration }}
+				</td>
+				<td>
+					{{ probe.height }}
+				</td>
+				<td>
+					{{ probe.width }}
 				</td>
 			</tr>
 		</tbody>
