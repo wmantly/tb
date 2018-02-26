@@ -11,7 +11,9 @@
 ## API
 
 * `/api/info` *GET* returns codeds and fiilters `ffmpeg` has available
-  * 200 ```{
+  * 200 
+  ```
+{
 	codecs: {
 		4gv: {type: "audio", description: "4GV (Fourth Generation Vocoder)", canDecode: false, canEncode: false,…}
 	},
@@ -21,4 +23,6 @@
 	formats: {
 		3g2: {description: "3GP2 (3GPP2 file format)", canDemux: true, canMux: true},…}
 	}
-}```
+}
+  
+  ```
