@@ -31,6 +31,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 require('./pubsub.js')(app);
 
+app.use(function(req, res, next){
+  res.locals.basePath = '/stuff/';
+  next();
+});
+
 require('./routes/dir')(app);
 
 // catch 404 and forward to error handler

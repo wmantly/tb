@@ -108,28 +108,29 @@ var statList = function( dir, list, callback ){
 
 module.exports = function(app){
 
-	console.log('here')
-
-	// fs.watch('/stuffpool/incoming/', {encoding: 'buffer'}, lodash.debounce(function(filename){
+	// fs.watch('/stuff/incoming/', {encoding: 'buffer'}, lodash.debounce(function(filename){
 	// 	console.log('new file!');
 	// 	app.io.to('incoming').emit('new-file', {'filename': filename});
 	// }, 500));
+
 
 	app.get( '/dir/', function( req, res, next ) {
 		res.render( 'dir', { title: "dir" } );
 	});
 
+
 	app.get( '/api/fileData', function( req, res, next ) {
 		if( !req.query.filename ) res.json({});
 
-		probe( parseParentPointer(req.query.filename), function(error, results){
+		probe( parseParentPointer(res.locals.basePath + req.query.filename), function(error, results){
 			return res.json( results );
 		} );
 	} );
 
+
 	app.get('/api/list', function(req, res, next) {
 		
-		var dir = '/stuff/' + parseParentPointer( req.query.dir );
+		var dir = res.locals.basePath +  parseParentPointer( req.query.dir );
 
 		fileList(dir, function(list){
 			statList(dir, list, function(out){
@@ -142,7 +143,7 @@ module.exports = function(app){
 		var format = req.query.format || 'mp4';
 		res.contentType(format);
 		// make sure you set the correct path to your video file storage
-		var pathToMovie = req.query.filename;
+		var pathToMovie = res.locals.basePath + req.query.filename;
 		var size = req.query.size ? '?x' + req.query.size : '100%';
 		console.log( format, size, pathToMovie );
 
@@ -169,10 +170,6 @@ module.exports = function(app){
 			.pipe(res, {end: true});
 	});
 
-	// 
-	app.get( '/dir/info/', function( req, res, next ){
-		res.render( 'info' );
-	} );
 
 	// ffmpeg info
 	app.get( '/api/info/', function( req, res, next ){
