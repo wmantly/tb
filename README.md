@@ -46,3 +46,6 @@
     * `{"message":"/stuff/torrents/Stargate.Origins.S01E03.720p.WEB.h264-TBS[eztv].mk: No such file or directory\n"}`
   * 415 **JSON** requested path is a directory
     * `{"message":"/stuff/torrents/: Is a directory\n"}`
+    
+  * 501 **JSON** The probe for the requested file is not configured
+    * `{"messag":"/stuff/linuxmint-18-cinnamon-dvd-64bit.iso: Invalid data found when processing input\n"}`
