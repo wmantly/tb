@@ -18,4 +18,27 @@
  
   * 200 `{dir: "/stuff//", list: [{name: ".l.txt.swp", type: {type: "other"},…}, {name: "10000mb.bin", type: {type: "other"},…},…]}`
  
-* `http://x7550:3080/video/torrents/Stargate.Origins.S01E02.720p.WEB.h264-TBS[eztv].mkv&size=&format=mp4`
+* `/api/fileData/:fileName` **GET** returns meta and codec data for the file
+  * `fileName` The path and name for the requesting file.
+  
+  * 200 JSON oject with:
+    * `filename` **String**
+    * `file` **String** full file path
+    * `fileext` **String** file extension
+    * `filepath` **String** Directory of file
+    * `probe_time` **Number**
+    * `format` **Object**
+      * `bit_rate` **Number**
+      * `duration` **Number** Duration of media in seconds
+      * `format_long_name` **String** 
+      * `format_name` **String**
+      * `nb_programs` **Number**
+      * `nb_streams` **Number**
+      * `probe_score` **Number**
+      * `size` **Number** File size in bytes
+      * `start_time` **Number**
+    * `metadata` **Object**
+      * `creation_time` **String**
+      * `encoder` **String**
+    * `streams` **Array** List of aduio and video streams in the file. Their can be 0 or more
+      * **Object** Detailed information about the codec used.
