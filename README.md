@@ -42,3 +42,7 @@
       * `encoder` **String**
     * `streams` **Array** List of aduio and video streams in the file. Their can be 0 or more
       * **Object** Detailed information about the codec used.
+  * 404 **JSON** requested file is not found
+    * `{"message":"/stuff/torrents/Stargate.Origins.S01E03.720p.WEB.h264-TBS[eztv].mk: No such file or directory\n"}`
+  * 415 **JSON** requested path is a directory
+    * `{"message":"/stuff/torrents/: Is a directory\n"}`
