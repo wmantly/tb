@@ -35,6 +35,10 @@ var typeList = {
 	mp3: {
 		type: 'music'
 	},
+	iso: {
+		type: 'disk_image'
+	},
+
 	OTHER: {
 		type: 'other'
 	}
@@ -53,11 +57,8 @@ var getType = function( fileName ){
 	return type;
 };
 
-var fileList = function( dir, callback ){
-	fs.readdir( dir, function ( error, list ) {
-		if ( error ) return error;
-		callback( list );
-	} );
+var fileList = async function(dir){
+	return await fs.readdir(dir);
 };
 
 var statList = function( dir, list, callback ){
@@ -108,10 +109,10 @@ var statList = function( dir, list, callback ){
 
 module.exports = function(app){
 
-	// fs.watch('/stuff/incoming/', {encoding: 'buffer'}, lodash.debounce(function(filename){
-	// 	console.log('new file!');
-	// 	app.io.to('incoming').emit('new-file', {'filename': filename});
-	// }, 500));
+	fs.watch('/stuffpool/stuff/torrents/', {encoding: 'buffer'}, lodash.debounce(function(filename){
+		console.log('new file!');
+		app.io.to('incoming').emit('new-file', {'filename': filename});
+	}, 500));
 
 
 	app.get( '/dir/', function( req, res, next ) {
@@ -119,13 +120,29 @@ module.exports = function(app){
 	});
 
 
-	app.get( '/api/fileData', function( req, res, next ) {
-		if( !req.query.filename ) res.json({});
+	app.get('/api/fileData/:fileName(*+)', function(req, res, next) {
+		let fileName = res.locals.basePath + req.params.fileName;
 
-		probe( parseParentPointer(res.locals.basePath + req.query.filename), function(error, results){
-			return res.json( results );
-		} );
-	} );
+		probe(parseParentPointer(fileName), function(error, results){
+			if (error) {
+				if(error.includes('Invalid data found when processing input')){
+					return res.status(501).json({messag: error});
+
+				}else if(error.includes('Is a directory')){
+					return res.status(415).json({message: error});
+
+				}else if(error.includes('No such file or directory')){
+					return res.status(404).json({message:error});
+
+				} else{
+					return res.status(500).json({message: error});
+
+				}
+			}
+
+			return res.json(results);
+		});
+	});
 
 
 	app.get('/api/list', function(req, res, next) {
@@ -134,40 +151,45 @@ module.exports = function(app){
 
 		fileList(dir, function(list){
 			statList(dir, list, function(out){
+				out.dir = out.dir.replace(new RegExp( `^${res.locals.basePath.replace(/\//g, '\\/').replace(/\./g, '\\.'), 'i' )}`,'')
 				res.json(out);
 			});
 		});
 	});
 	
-	app.get('/video/', function( req, res, next ) {
-		var format = req.query.format || 'mp4';
-		res.contentType(format);
-		// make sure you set the correct path to your video file storage
-		var pathToMovie = res.locals.basePath + req.query.filename;
-		var size = req.query.size ? '?x' + req.query.size : '100%';
-		console.log( format, size, pathToMovie );
+	app.get('/video/:fileName(*+)', function( req, res, next ) {
+		let format = req.query.format || 'mp4';
+		let fileName = res.locals.basePath + req.params.fileName;
 
-		var proc = ffmpeg(pathToMovie)
+		console.log('video', fileName)
+
+		// make sure you set the correct path to your video file storage
+
+		var size = req.query.size ? '?x' + req.query.size : '100%';
+		
+		res.contentType(format);
+		var proc = ffmpeg(fileName)
 			.format(format)
 			.size(size)
 			.outputOptions([ '-threads 8', '-strict -2', '-movflags frag_keyframe+faststart', '-tune zerolatency' ])
 			.on('start', function(){
-				console.info('start', arguments);
+				// console.info('start', arguments);
 			})
 			.on('codecData',function(){
-				console.info('codecData', arguments);
+				// console.info('codecData', arguments);
 			})
 			.on('progress',function(){
-				console.info('progress', arguments);
+				// console.info('progress', arguments);
 			})
 			.on('end', function(){
-				console.info('file has been converted successfully');
+				// console.info('file has been converted successfully');
 			})
 			.on('error', function(err, stdout, stderr){
 				console.error('an error happened:', err, stdout, stderr);
-			})
+			});
+			
 			// save to stream
-			.pipe(res, {end: true});
+			proc.pipe(res, {end: true});
 	});
 
 

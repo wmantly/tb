@@ -26,7 +26,9 @@
 		    event.preventDefault();
 		    event.defaultPrevented;
 		    $.scope.videos.splice(0);
-		    var href = $( '[name="url"]' ).val() + '&size=' + $( '[name="height"]' ).val() + '&format=' + $( '[name="format"]').val()
+
+		    var href = $( '[name="url"]' ).val() + '?size=' + $( '[name="height"]' ).val() + '&format=' + $( '[name="format"]').val()
+
 		    console.log( href )
 			$.scope.videos.push( {
 				name: $( '#name' ).text(),
@@ -57,6 +59,7 @@
 			$.scope.currentList.splice(0);
 
 			$.get( dir, function( data ){
+
 				data.list.forEach( function( obj ){
 					if( !obj.data ){
 						console.log( obj );
@@ -70,7 +73,8 @@
 					if( obj.type.type == 'video' ){
 						var duration = moment.duration(obj.probe.format.duration, 'seconds');
 						if(obj.probe.streams.length > 2) console.log(obj.probe)
-						obj.name = '<play href="./video/?filename=' + data.dir + obj.name + '">' + obj.name +'</play>';
+						console.log('list', data.dir, 'name', obj.name)
+						obj.name = '<play href="./video/' + data.dir + obj.name + '">' + obj.name +'</play>';
 						obj.probe.height = obj.probe.streams[0].height;
 						obj.probe.width = obj.probe.streams[0].width;
 
